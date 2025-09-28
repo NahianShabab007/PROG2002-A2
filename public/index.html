@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Charity Events — Home</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+<header id="top"></header>
+
+<main class="container">
+  <h1>Welcome to Charity Events</h1>
+
+  <!-- Static organisation info (required by brief) -->
+  <section class="card" style="margin-bottom:16px">
+    <h2>Our Mission</h2>
+    <p>We support community health, education, and the environment by running inclusive, local events.</p>
+    <p><strong>Contact:</strong> nahiansabab1998@gmail.com</p>
+  </section>
+
+  <!-- Control to reveal past events (to show “past/upcoming” classification) -->
+  <div class="row" style="margin:8px 0 16px">
+    <label><input type="checkbox" id="togglePast"> Show past events</label>
+  </div>
+
+  <p class="muted">Upcoming events (suspended items are hidden automatically).</p>
+  <section id="events" class="grid"></section>
+
+  <!-- Past section appears when toggled -->
+  <h2 id="pastTitle" style="display:none;margin-top:24px">Past events</h2>
+  <section id="past" class="grid"></section>
+</main>
+
+<footer class="container muted">© Charity Org</footer>
+<script type="module" src="/js/home.js"></script>
+</body>
+</html>

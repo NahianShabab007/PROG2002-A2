@@ -11,16 +11,16 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  // Helpful for MySQL 8 timezone handling
+  // Return DATETIME as strings so browsers handle them consistently
   dateStrings: true
 });
 
-// quick self-test at startup
+// Quick connectivity check on startup
 async function selfTest() {
   const conn = await pool.getConnection();
   try {
-    const [rows] = await conn.query('SELECT DATABASE() AS db');
-    console.log(`[DB] Connected. Using database: ${rows[0].db}`);
+    const [[row]] = await conn.query('SELECT DATABASE() AS db');
+    console.log(`[DB] Connected. Using database: ${row.db}`);
   } finally {
     conn.release();
   }

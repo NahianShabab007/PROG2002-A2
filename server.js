@@ -8,9 +8,11 @@ const { pool, selfTest } = require('./event_db');
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'))); // serve website
 
-// health
+// Serve the client site
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- Health ---
 app.get('/health', async (_req, res) => {
   try {
     const [r] = await pool.query('SELECT 1 AS ok');
@@ -20,7 +22,7 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// categories
+// --- Categories (for search filter) ---
 app.get('/api/categories', async (_req, res) => {
   try {
     const [rows] = await pool.query(
@@ -33,7 +35,7 @@ app.get('/api/categories', async (_req, res) => {
   }
 });
 
-// home feed (active + upcoming)
+// --- Home feed: active + upcoming (exclude suspended) ---
 app.get('/api/events/home', async (_req, res) => {
   try {
     const [rows] = await pool.query(
@@ -53,10 +55,31 @@ app.get('/api/events/home', async (_req, res) => {
   }
 });
 
-// search (any combo of params)
+// --- Past events: active but ended (for "Show past" toggle) ---
+app.get('/api/events/past', async (_req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT e.id, e.title, e.start_datetime, e.end_datetime,
+              e.location_city, e.location_venue, e.image_url,
+              e.is_free, e.price_cents, c.name AS category
+         FROM events e
+         JOIN categories c ON c.id = e.category_id
+        WHERE e.status = 'active'
+          AND e.end_datetime <= NOW()
+        ORDER BY e.end_datetime DESC`
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch past events' });
+  }
+});
+
+// --- Search: date (start/end), city, category (any combo) ---
 app.get('/api/events/search', async (req, res) => {
   try {
     const { start, end, city, category } = req.query;
+
     const where = [`e.status = 'active'`];
     const params = [];
 
@@ -77,17 +100,16 @@ app.get('/api/events/search', async (req, res) => {
       params.push(category);
     }
 
-    const [rows] = await pool.query(
-      `SELECT e.id, e.title, e.start_datetime, e.end_datetime,
-              e.location_city, e.location_venue, e.image_url,
-              e.is_free, e.price_cents, c.name AS category
-         FROM events e
-         JOIN categories c ON c.id = e.category_id
-        WHERE ${where.join(' AND ')}
-        ORDER BY e.start_datetime ASC`,
-      params
-    );
+    const sql = `
+      SELECT e.id, e.title, e.start_datetime, e.end_datetime,
+             e.location_city, e.location_venue, e.image_url,
+             e.is_free, e.price_cents, c.name AS category
+        FROM events e
+        JOIN categories c ON c.id = e.category_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY e.start_datetime ASC`;
 
+    const [rows] = await pool.query(sql, params);
     res.json({ count: rows.length, results: rows });
   } catch (e) {
     console.error(e);
@@ -95,13 +117,14 @@ app.get('/api/events/search', async (req, res) => {
   }
 });
 
-// details
+// --- Event details ---
 app.get('/api/events/:id', async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'Invalid id' });
     }
+
     const [rows] = await pool.query(
       `SELECT e.*, c.name AS category_name,
               o.name AS org_name, o.mission AS org_mission, o.website AS org_website
@@ -111,6 +134,7 @@ app.get('/api/events/:id', async (req, res) => {
         WHERE e.id = ?`,
       [id]
     );
+
     if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json(rows[0]);
   } catch (e) {
@@ -119,11 +143,12 @@ app.get('/api/events/:id', async (req, res) => {
   }
 });
 
-// fallback -> website home
+// Fallback to SPA pages
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Start server after DB self-test
 const PORT = Number(process.env.PORT || 3001);
 selfTest()
   .then(() => app.listen(PORT, () => console.log(`running: http://localhost:${PORT}`)))
